@@ -1,190 +1,9 @@
-import javax.crypto.Cipher;
-import javax.crypto.CipherInputStream;
-import javax.crypto.CipherOutputStream;
-import javax.crypto.SecretKeyFactory;
-import javax.crypto.spec.DESKeySpec;
-import javax.crypto.spec.IvParameterSpec;
-import java.io.*;
-import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
-import java.security.Key;
-import java.util.Base64;
-
-public class HappyBox {
-
-    /**
-     * 偏移变量，固定占8位字节
-     */
-    private final static String IV_PARAMETER = "12345678";
-    /**
-     * 密钥算法
-     */
-    private static final String ALGORITHM = "DES";
-    /**
-     * 加密/解密算法-工作模式-填充模式
-     */
-    private static final String CIPHER_ALGORITHM = "DES/CBC/PKCS5Padding";
-    /**
-     * 默认编码
-     */
-    private static final String CHARSET = "utf-8";
-
-    /**
-     * 生成key
-     *
-     * @param password
-     * @return
-     * @throws Exception
-     */
-    private static Key generateKey(String password) throws Exception {
-        DESKeySpec dks = new DESKeySpec(password.getBytes(CHARSET));
-        SecretKeyFactory keyFactory = SecretKeyFactory.getInstance(ALGORITHM);
-        return keyFactory.generateSecret(dks);
-    }
-
-
-    /**
-     * DES加密字符串
-     *
-     * @param password 加密密码，长度不能够小于8位
-     * @param data 待加密字符串
-     * @return 加密后内容
-     */
-    public static String encrypt(String password, String data) {
-        if (password== null || password.length() < 8) {
-            throw new RuntimeException("加密失败，key不能小于8位");
-        }
-        if (data == null)
-            return null;
-        try {
-            Key secretKey = generateKey(password);
-            Cipher cipher = Cipher.getInstance(CIPHER_ALGORITHM);
-            IvParameterSpec iv = new IvParameterSpec(IV_PARAMETER.getBytes(CHARSET));
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, iv);
-            byte[] bytes = cipher.doFinal(data.getBytes(CHARSET));
-
-            //JDK1.8及以上可直接使用Base64，JDK1.7及以下可以使用BASE64Encoder
-            //Android平台可以使用android.util.Base64
-            return new String(Base64.getEncoder().encode(bytes));
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return data;
-        }
-    }
-
-    /**
-     * DES解密字符串
-     *
-     * @param password 解密密码，长度不能够小于8位
-     * @param data 待解密字符串
-     * @return 解密后内容
-     */
-    public static String decrypt(String password, String data) {
-        if (password== null || password.length() < 8) {
-            throw new RuntimeException("加密失败，key不能小于8位");
-        }
-        if (data == null)
-            return null;
-        try {
-            Key secretKey = generateKey(password);
-            Cipher cipher = Cipher.getInstance(CIPHER_ALGORITHM);
-            IvParameterSpec iv = new IvParameterSpec(IV_PARAMETER.getBytes(CHARSET));
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, iv);
-            return new String(cipher.doFinal(Base64.getDecoder().decode(data.getBytes(CHARSET))), CHARSET);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return data;
-        }
-    }
-
-    /**
-     * DES加密文件
-     *
-     * @param srcFile  待加密的文件
-     * @param destFile 加密后存放的文件路径
-     * @return 加密后的文件路径
-     */
-    public static String encryptFile(String password, String srcFile, String destFile) {
-
-        if (password== null || password.length() < 8) {
-            throw new RuntimeException("加密失败，key不能小于8位");
-        }
-        try {
-            IvParameterSpec iv = new IvParameterSpec(IV_PARAMETER.getBytes(CHARSET));
-            Cipher cipher = Cipher.getInstance(CIPHER_ALGORITHM);
-            cipher.init(Cipher.ENCRYPT_MODE, generateKey(password), iv);
-            InputStream is = new FileInputStream(srcFile);
-            OutputStream out = new FileOutputStream(destFile);
-            CipherInputStream cis = new CipherInputStream(is, cipher);
-            byte[] buffer = new byte[1024];
-            int r;
-            while ((r = cis.read(buffer)) > 0) {
-                out.write(buffer, 0, r);
-            }
-            cis.close();
-            is.close();
-            out.close();
-            return destFile;
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        return null;
-    }
-
-    /**
-     * DES解密文件
-     *
-     * @param srcFile  已加密的文件
-     * @param destFile 解密后存放的文件路径
-     * @return 解密后的文件路径
-     */
-    public static String decryptFile(String password, String srcFile, String destFile) {
-        if (password== null || password.length() < 8) {
-            throw new RuntimeException("加密失败，key不能小于8位");
-        }
-        try {
-            File file = new File(destFile);
-            if (!file.exists()) {
-                file.createNewFile();
-            }
-            IvParameterSpec iv = new IvParameterSpec(IV_PARAMETER.getBytes(CHARSET));
-            Cipher cipher = Cipher.getInstance(CIPHER_ALGORITHM);
-            cipher.init(Cipher.DECRYPT_MODE, generateKey(password), iv);
-            InputStream is = new FileInputStream(srcFile);
-            OutputStream out = new FileOutputStream(destFile);
-            CipherOutputStream cos = new CipherOutputStream(out, cipher);
-            byte[] buffer = new byte[1024];
-            int r;
-            while ((r = is.read(buffer)) >= 0) {
-                cos.write(buffer, 0, r);
-            }
-            cos.close();
-            is.close();
-            out.close();
-            return destFile;
-        } catch (Exception ex) {
-            ex.printStackTrace();
-        }
-        return null;
-    }
-
-    public static String getUnhappyFile() {
-        InputStream in = null;
-        try {
-            in = new URL("https://raw.githubusercontent.com/JY0284/zizhitongjian/main/happybox.txt").openStream();
-            Files.copy(in, Paths.get("unhappy.txt"), StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        return "unhappy.txt";
-    }
-
-    public static void main(String[] args) {
-
-        decryptFile("12345678", getUnhappyFile(), "happy.txt");
-    }
-}
+jV�3X���x`;݈��fG[�y��7��P���p��c9��J�zW�#(�t�"8SUu��q���_&���1>�q��]��^���>��	WYAMs�!S�G�h$��y$ �)���9GB'���I7h��'~���RN@�[}N0NZ �kE��UCx	��c�}��h1�?I¿m���8c�B57nX4�\]��u�ԝ��Y.�Y���=PX�~�bm'?�GwHk��@�-�*�4�j���P�<�'9㲜
+�Y�q˩�A����0�W�
+�־�"�8�{��M��Q!�VU���!μ��G!��S�\.8�=�Xo41P��� �0���%�@j���}{�8�W��L�~}s�pLE"��%$#�3Ƞ����
+��*ӗ|�%�pX~���;^����=e�	p@�����bY��߾�$�cRʊ�̋���x�x�y����#��}>�U*�3�O�� $?sIs�b8�밺��WZ�1d� |���ɿ�%�n!Ӻ�\�Ja��c�8��0?[�Y�zTLڷ�|1wOx�amL���.�fb2ND�Lw�g	�c�wEf�*x�h��t����!�	��HK訆Ih�m��2�������A)��Pr<�X���ն�r<��T��ʮ���ޫt��e�9Q�b��]!��{��\�
+onq��
+u
+�{g��n/
+��%Ƿy�
+������d�a׭�F��)�~e�y�o)(l�s��rP��x�PCd���s�����\T� 7�aXw%"�V�/b]� ��8�-B��%址��^"� taۿ�^D÷kd#t�pnv����g5:}�۬Q�#���ɨSx!?R�;G3�u&~u1��	/α"�0<�"�cf��3O�(��O�"d�|�` �X�1㘼���w}�<�š��V��c��O�엇�����7փ��|7�v�a�E0k���tHmjS�C�5כM��Qc���Jr�d�Ԭ̨5�;�+��u��)���i�Wi�>zں�[�Ʒ=��(ޙ���2Y��?��yt��߰a�b�͍�iz�&��Ls8n'����6��"F-~��<����6�"�ǤnW��Yg��U���&�����2���+���π:<�J�*3`F�	����\P�Ŧ|~*�ё��^�07�ʻ�⿭�mO��^
