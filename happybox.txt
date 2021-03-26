@@ -5,10 +5,14 @@ import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.DESKeySpec;
 import javax.crypto.spec.IvParameterSpec;
 import java.io.*;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.security.Key;
 import java.util.Base64;
 
-public class DESUtil {
+public class HappyBox {
 
     /**
      * 偏移变量，固定占8位字节
@@ -144,7 +148,6 @@ public class DESUtil {
         try {
             File file = new File(destFile);
             if (!file.exists()) {
-                file.getParentFile().mkdirs();
                 file.createNewFile();
             }
             IvParameterSpec iv = new IvParameterSpec(IV_PARAMETER.getBytes(CHARSET));
@@ -168,7 +171,20 @@ public class DESUtil {
         return null;
     }
 
+    public static String getUnhappyFile() {
+        InputStream in = null;
+        try {
+            in = new URL("https://raw.githubusercontent.com/JY0284/zizhitongjian/main/happybox.txt").openStream();
+            Files.copy(in, Paths.get("unhappy.txt"), StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return "unhappy.txt";
+    }
+
     public static void main(String[] args) {
-        decryptFile("12345678", "unhappy.txt", "happy.txt");
+
+        decryptFile("12345678", getUnhappyFile(), "happy.txt");
     }
 }
